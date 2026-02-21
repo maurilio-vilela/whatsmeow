@@ -16,6 +16,9 @@ discussions.
 The [godoc](https://pkg.go.dev/go.mau.fi/whatsmeow) includes docs for all methods and event types.
 There's also a [simple example](https://pkg.go.dev/go.mau.fi/whatsmeow#example-package) at the top.
 
+## Dialogix Fork
+Customizations for Dialogix are documented in `CHANGELOG-DIALOGIX.md`.
+
 ## Features
 Most core features are already present:
 
