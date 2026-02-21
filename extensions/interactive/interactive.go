@@ -45,6 +45,23 @@ type ButtonsMessageParams struct {
 	Buttons     []Button
 }
 
+// NativeFlowButton represents a native flow button payload.
+type NativeFlowButton struct {
+	Name             string
+	ButtonParamsJSON string
+}
+
+// NativeFlowMessageParams defines the native flow interactive message payload.
+type NativeFlowMessageParams struct {
+	HeaderTitle       string
+	HeaderSubtitle    string
+	BodyText          string
+	FooterText        string
+	MessageParamsJSON string
+	MessageVersion    int32
+	Buttons           []NativeFlowButton
+}
+
 // NewListMessage builds a list message payload.
 func NewListMessage(params ListMessageParams) *waE2E.Message {
 	sections := make([]*waE2E.ListMessage_Section, 0, len(params.Sections))
@@ -94,6 +111,57 @@ func NewButtonsMessage(params ButtonsMessageParams) *waE2E.Message {
 	}
 
 	return &waE2E.Message{ButtonsMessage: buttonsMessage}
+}
+
+// NewNativeFlowMessage builds a native flow interactive message payload.
+func NewNativeFlowMessage(params NativeFlowMessageParams) *waE2E.Message {
+	buttons := make([]*waE2E.InteractiveMessage_NativeFlowMessage_NativeFlowButton, 0, len(params.Buttons))
+	for _, btn := range params.Buttons {
+		buttons = append(buttons, &waE2E.InteractiveMessage_NativeFlowMessage_NativeFlowButton{
+			Name:             strPtr(btn.Name),
+			ButtonParamsJSON: strPtr(btn.ButtonParamsJSON),
+		})
+	}
+
+	version := params.MessageVersion
+	if version == 0 {
+		version = 1
+	}
+
+	nativeFlow := &waE2E.InteractiveMessage_NativeFlowMessage{
+		Buttons:           buttons,
+		MessageParamsJSON: strPtr(params.MessageParamsJSON),
+		MessageVersion:    proto.Int32(version),
+	}
+
+	interactive := &waE2E.InteractiveMessage{
+		InteractiveMessage: &waE2E.InteractiveMessage_NativeFlowMessage_{
+			NativeFlowMessage: nativeFlow,
+		},
+		Header: &waE2E.InteractiveMessage_Header{
+			Title:              strPtr(params.HeaderTitle),
+			Subtitle:           strPtr(params.HeaderSubtitle),
+			HasMediaAttachment: proto.Bool(false),
+		},
+		Body: &waE2E.InteractiveMessage_Body{
+			Text: strPtr(params.BodyText),
+		},
+		Footer: &waE2E.InteractiveMessage_Footer{
+			Text: strPtr(params.FooterText),
+		},
+	}
+
+	return &waE2E.Message{
+		MessageContextInfo: &waE2E.MessageContextInfo{
+			DeviceListMetadataVersion: proto.Int32(3),
+		},
+		InteractiveMessage: interactive,
+	}
+}
+
+// SendNativeFlowMessage sends a native flow interactive message using the provided client.
+func SendNativeFlowMessage(ctx context.Context, client *whatsmeow.Client, jid types.JID, params NativeFlowMessageParams) (whatsmeow.SendResponse, error) {
+	return client.SendMessage(ctx, jid, NewNativeFlowMessage(params))
 }
 
 // SendListMessage sends a list message using the provided client.
