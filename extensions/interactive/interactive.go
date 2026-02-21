@@ -2,6 +2,9 @@ package interactive
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"strings"
 
 	"google.golang.org/protobuf/proto"
 
@@ -161,17 +164,94 @@ func NewNativeFlowMessage(params NativeFlowMessageParams) *waE2E.Message {
 
 // SendNativeFlowMessage sends a native flow interactive message using the provided client.
 func SendNativeFlowMessage(ctx context.Context, client *whatsmeow.Client, jid types.JID, params NativeFlowMessageParams) (whatsmeow.SendResponse, error) {
+	if err := ValidateNativeFlowMessage(params); err != nil {
+		return whatsmeow.SendResponse{}, err
+	}
 	return client.SendMessage(ctx, jid, NewNativeFlowMessage(params))
 }
 
 // SendListMessage sends a list message using the provided client.
 func SendListMessage(ctx context.Context, client *whatsmeow.Client, jid types.JID, params ListMessageParams) (whatsmeow.SendResponse, error) {
+	if err := ValidateListMessage(params); err != nil {
+		return whatsmeow.SendResponse{}, err
+	}
 	return client.SendMessage(ctx, jid, NewListMessage(params))
 }
 
 // SendButtonsMessage sends a buttons message using the provided client.
 func SendButtonsMessage(ctx context.Context, client *whatsmeow.Client, jid types.JID, params ButtonsMessageParams) (whatsmeow.SendResponse, error) {
+	if err := ValidateButtonsMessage(params); err != nil {
+		return whatsmeow.SendResponse{}, err
+	}
 	return client.SendMessage(ctx, jid, NewButtonsMessage(params))
+}
+
+// ValidateListMessage validates list message params.
+func ValidateListMessage(params ListMessageParams) error {
+	if strings.TrimSpace(params.Title) == "" {
+		return errors.New("list title is required")
+	}
+	if strings.TrimSpace(params.ButtonText) == "" {
+		return errors.New("list button text is required")
+	}
+	if len(params.Sections) == 0 {
+		return errors.New("list requires at least one section")
+	}
+	for i, section := range params.Sections {
+		if strings.TrimSpace(section.Title) == "" {
+			return fmt.Errorf("section %d title is required", i+1)
+		}
+		if len(section.Rows) == 0 {
+			return fmt.Errorf("section %d requires at least one row", i+1)
+		}
+		for j, row := range section.Rows {
+			if strings.TrimSpace(row.ID) == "" {
+				return fmt.Errorf("section %d row %d id is required", i+1, j+1)
+			}
+			if strings.TrimSpace(row.Title) == "" {
+				return fmt.Errorf("section %d row %d title is required", i+1, j+1)
+			}
+		}
+	}
+	return nil
+}
+
+// ValidateButtonsMessage validates buttons message params.
+func ValidateButtonsMessage(params ButtonsMessageParams) error {
+	if strings.TrimSpace(params.ContentText) == "" {
+		return errors.New("buttons content text is required")
+	}
+	if len(params.Buttons) == 0 {
+		return errors.New("buttons message requires at least one button")
+	}
+	for i, btn := range params.Buttons {
+		if strings.TrimSpace(btn.ID) == "" {
+			return fmt.Errorf("button %d id is required", i+1)
+		}
+		if strings.TrimSpace(btn.Text) == "" {
+			return fmt.Errorf("button %d text is required", i+1)
+		}
+	}
+	return nil
+}
+
+// ValidateNativeFlowMessage validates native flow params.
+func ValidateNativeFlowMessage(params NativeFlowMessageParams) error {
+	if strings.TrimSpace(params.BodyText) == "" {
+		return errors.New("native flow body text is required")
+	}
+	if len(params.Buttons) == 0 {
+		return errors.New("native flow requires at least one button")
+	}
+	for i, btn := range params.Buttons {
+		if strings.TrimSpace(btn.Name) == "" {
+			return fmt.Errorf("native flow button %d name is required", i+1)
+		}
+		if strings.TrimSpace(btn.ButtonParamsJSON) == "" {
+			return fmt.Errorf("native flow button %d params json is required", i+1)
+		}
+	}
+	return nil
 }
 
 func strPtr(value string) *string {
