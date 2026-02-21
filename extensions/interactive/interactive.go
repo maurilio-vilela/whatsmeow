@@ -2,6 +2,7 @@ package interactive
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -11,6 +12,21 @@ import (
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/proto/waE2E"
 	"go.mau.fi/whatsmeow/types"
+)
+
+const (
+	maxButtons              = 3
+	maxListSections         = 10
+	maxRowsPerSection       = 10
+	maxTotalListRows        = 100
+	maxTitleLength          = 60
+	maxSubtitleLength       = 60
+	maxBodyLength           = 1024
+	maxFooterLength         = 60
+	maxButtonTextLength     = 20
+	maxRowTitleLength       = 24
+	maxRowDescriptionLength = 72
+	maxJSONLength           = 2048
 )
 
 // Button represents a quick-reply button.
@@ -191,27 +207,59 @@ func ValidateListMessage(params ListMessageParams) error {
 	if strings.TrimSpace(params.Title) == "" {
 		return errors.New("list title is required")
 	}
+	if len(params.Title) > maxTitleLength {
+		return fmt.Errorf("list title exceeds %d characters", maxTitleLength)
+	}
 	if strings.TrimSpace(params.ButtonText) == "" {
 		return errors.New("list button text is required")
+	}
+	if len(params.ButtonText) > maxButtonTextLength {
+		return fmt.Errorf("list button text exceeds %d characters", maxButtonTextLength)
+	}
+	if len(params.Description) > maxBodyLength {
+		return fmt.Errorf("list description exceeds %d characters", maxBodyLength)
+	}
+	if len(params.FooterText) > maxFooterLength {
+		return fmt.Errorf("list footer exceeds %d characters", maxFooterLength)
 	}
 	if len(params.Sections) == 0 {
 		return errors.New("list requires at least one section")
 	}
+	if len(params.Sections) > maxListSections {
+		return fmt.Errorf("list supports up to %d sections", maxListSections)
+	}
+	rowCount := 0
 	for i, section := range params.Sections {
 		if strings.TrimSpace(section.Title) == "" {
 			return fmt.Errorf("section %d title is required", i+1)
 		}
+		if len(section.Title) > maxTitleLength {
+			return fmt.Errorf("section %d title exceeds %d characters", i+1, maxTitleLength)
+		}
 		if len(section.Rows) == 0 {
 			return fmt.Errorf("section %d requires at least one row", i+1)
 		}
+		if len(section.Rows) > maxRowsPerSection {
+			return fmt.Errorf("section %d supports up to %d rows", i+1, maxRowsPerSection)
+		}
 		for j, row := range section.Rows {
+			rowCount++
 			if strings.TrimSpace(row.ID) == "" {
 				return fmt.Errorf("section %d row %d id is required", i+1, j+1)
 			}
 			if strings.TrimSpace(row.Title) == "" {
 				return fmt.Errorf("section %d row %d title is required", i+1, j+1)
 			}
+			if len(row.Title) > maxRowTitleLength {
+				return fmt.Errorf("section %d row %d title exceeds %d characters", i+1, j+1, maxRowTitleLength)
+			}
+			if len(row.Description) > maxRowDescriptionLength {
+				return fmt.Errorf("section %d row %d description exceeds %d characters", i+1, j+1, maxRowDescriptionLength)
+			}
 		}
+	}
+	if rowCount > maxTotalListRows {
+		return fmt.Errorf("list supports up to %d total rows", maxTotalListRows)
 	}
 	return nil
 }
@@ -221,8 +269,17 @@ func ValidateButtonsMessage(params ButtonsMessageParams) error {
 	if strings.TrimSpace(params.ContentText) == "" {
 		return errors.New("buttons content text is required")
 	}
+	if len(params.ContentText) > maxBodyLength {
+		return fmt.Errorf("buttons content text exceeds %d characters", maxBodyLength)
+	}
+	if len(params.FooterText) > maxFooterLength {
+		return fmt.Errorf("buttons footer text exceeds %d characters", maxFooterLength)
+	}
 	if len(params.Buttons) == 0 {
 		return errors.New("buttons message requires at least one button")
+	}
+	if len(params.Buttons) > maxButtons {
+		return fmt.Errorf("buttons message supports up to %d buttons", maxButtons)
 	}
 	for i, btn := range params.Buttons {
 		if strings.TrimSpace(btn.ID) == "" {
@@ -230,6 +287,9 @@ func ValidateButtonsMessage(params ButtonsMessageParams) error {
 		}
 		if strings.TrimSpace(btn.Text) == "" {
 			return fmt.Errorf("button %d text is required", i+1)
+		}
+		if len(btn.Text) > maxButtonTextLength {
+			return fmt.Errorf("button %d text exceeds %d characters", i+1, maxButtonTextLength)
 		}
 	}
 	return nil
@@ -240,8 +300,29 @@ func ValidateNativeFlowMessage(params NativeFlowMessageParams) error {
 	if strings.TrimSpace(params.BodyText) == "" {
 		return errors.New("native flow body text is required")
 	}
+	if len(params.HeaderTitle) > maxTitleLength {
+		return fmt.Errorf("native flow header title exceeds %d characters", maxTitleLength)
+	}
+	if len(params.HeaderSubtitle) > maxSubtitleLength {
+		return fmt.Errorf("native flow header subtitle exceeds %d characters", maxSubtitleLength)
+	}
+	if len(params.BodyText) > maxBodyLength {
+		return fmt.Errorf("native flow body text exceeds %d characters", maxBodyLength)
+	}
+	if len(params.FooterText) > maxFooterLength {
+		return fmt.Errorf("native flow footer text exceeds %d characters", maxFooterLength)
+	}
+	if len(params.MessageParamsJSON) > maxJSONLength {
+		return fmt.Errorf("native flow message params json exceeds %d characters", maxJSONLength)
+	}
+	if params.MessageParamsJSON != "" && !json.Valid([]byte(params.MessageParamsJSON)) {
+		return errors.New("native flow message params json is invalid")
+	}
 	if len(params.Buttons) == 0 {
 		return errors.New("native flow requires at least one button")
+	}
+	if len(params.Buttons) > maxButtons {
+		return fmt.Errorf("native flow supports up to %d buttons", maxButtons)
 	}
 	for i, btn := range params.Buttons {
 		if strings.TrimSpace(btn.Name) == "" {
@@ -249,6 +330,12 @@ func ValidateNativeFlowMessage(params NativeFlowMessageParams) error {
 		}
 		if strings.TrimSpace(btn.ButtonParamsJSON) == "" {
 			return fmt.Errorf("native flow button %d params json is required", i+1)
+		}
+		if len(btn.ButtonParamsJSON) > maxJSONLength {
+			return fmt.Errorf("native flow button %d params json exceeds %d characters", i+1, maxJSONLength)
+		}
+		if !json.Valid([]byte(btn.ButtonParamsJSON)) {
+			return fmt.Errorf("native flow button %d params json is invalid", i+1)
 		}
 	}
 	return nil
