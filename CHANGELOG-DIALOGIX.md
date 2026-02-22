@@ -5,6 +5,8 @@ This changelog tracks changes applied on top of the upstream `tulir/whatsmeow` f
 ## 2026-02-21
 
 ### Added
+- `mentions.go`
+  - `SendGhostMentionAll` helper to mention all group participants without showing @mentions in text.
 - `extensions/interactive/interactive.go`
   - Builders: `NewListMessage`, `NewButtonsMessage`, `NewNativeFlowMessage`
   - Send helpers: `SendListMessage`, `SendButtonsMessage`, `SendNativeFlowMessage`
